@@ -1,23 +1,73 @@
 package ntfy
 
 import (
+	"encoding/json"
 	"fmt"
 	mytypes "isthereanydeal/my-types"
 	"log"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"time"
 )
+
+func GetJsonContent(cfg mytypes.TOMLConfig) map[string]map[int]mytypes.JsonData {
+	jsonContent, err := os.ReadFile(cfg.Config.JsonName)
+
+	if err != nil {
+		log.Fatal("Unable to load json file please make sure you have the permission to read and write")
+	}
+
+	var jsonDeals map[string]map[int]mytypes.JsonData
+
+	_ = json.Unmarshal(jsonContent, &jsonDeals)
+
+	return jsonDeals
+}
+
+func addDealsToJson(cfg mytypes.TOMLConfig, deal mytypes.Deals) {
+	var seenDeals map[string]map[int]mytypes.JsonData
+
+	data, err := os.ReadFile(cfg.Config.JsonName)
+
+	if err != nil {
+		log.Fatal("Unable to load json file please make sure you have the permission to read and write")
+	} else if len(data) == 0 {
+		seenDeals = map[string]map[int]mytypes.JsonData{}
+	}
+
+	json.Unmarshal(data, &seenDeals)
+
+	if seenDeals[deal.GameId] == nil {
+		seenDeals[deal.GameId] = map[int]mytypes.JsonData{}
+	}
+
+	seenDeals[deal.GameId][deal.Shop.Id] = mytypes.JsonData{Url: deal.Url, Expiry: deal.Expiry}
+
+	data, err = json.Marshal(seenDeals)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	_ = os.WriteFile(cfg.Config.JsonName, data, 0644)
+
+}
 
 func SendDeals(cfg mytypes.TOMLConfig, dealChan <-chan mytypes.Deals) error {
 	allNotifications := map[string][]mytypes.Deals{}
 
 	totalNumberOfDeals := 0
 
+	jsonData := GetJsonContent(cfg)
+
 	for deal := range dealChan {
-		allNotifications[deal.GameName] = append(allNotifications[deal.GameName], deal)
-		totalNumberOfDeals += 1
+		if checkExperation(jsonData, deal) {
+			allNotifications[deal.GameId] = append(allNotifications[deal.GameId], deal)
+			addDealsToJson(cfg, deal)
+			totalNumberOfDeals += 1
+		}
 	}
 
 	fmt.Printf("Found %v deals\n", totalNumberOfDeals)
@@ -38,8 +88,6 @@ func SendDeals(cfg mytypes.TOMLConfig, dealChan <-chan mytypes.Deals) error {
 }
 
 func sendDealByGame(cfg mytypes.TOMLConfig, gameDeals []mytypes.Deals, gameInfo mytypes.Deals) error {
-	url := "https://ntfy.sh/" + cfg.Config.NTFYTopic
-
 	var body strings.Builder
 	fmt.Fprintf(&body, "Found a deal on %v (normally $%.2f)", gameInfo.GameName, gameInfo.Regular.Amount)
 
@@ -47,7 +95,7 @@ func sendDealByGame(cfg mytypes.TOMLConfig, gameDeals []mytypes.Deals, gameInfo 
 		fmt.Fprintf(&body, "\n$%.2f (%v%% off) at [%v](%v)", deal.Price.Amount, deal.Cut, deal.Shop.Name, deal.Url)
 	}
 
-	req, err := http.NewRequest("POST", url, strings.NewReader(body.String()))
+	req, err := http.NewRequest("POST", cfg.Config.NTFYUrl, strings.NewReader(body.String()))
 
 	if err != nil {
 		log.Fatal(err)
@@ -70,4 +118,13 @@ func sendDealByGame(cfg mytypes.TOMLConfig, gameDeals []mytypes.Deals, gameInfo 
 	defer resp.Body.Close()
 
 	return nil
+}
+
+func checkExperation(jsonData map[string]map[int]mytypes.JsonData, deal mytypes.Deals) bool {
+	if jsonData[deal.GameId][deal.Shop.Id].Url == deal.Url {
+		return false
+	} else {
+		return true
+	}
+
 }

@@ -21,6 +21,7 @@ type GamePrices struct {
 
 type Deals struct {
 	GameName  string
+	GameId    string
 	Shop      shop   `json:"shop"`
 	Price     price  `json:"price"`
 	Regular   price  `json:"regular"`
@@ -45,9 +46,10 @@ type TOMLConfig struct {
 		ITADClientId     string `toml:"itad_client_id"`
 		ITADClientSecret string `toml:"itad_client_secret"`
 		ITADAPIKey       string `toml:"itad_api_key"`
-		NTFYTopic        string `toml:"ntfy_topic"`
 		SteamApiKey      string `toml:"steam_api_key"`
 		SteamId          string `toml:"steam_account_id"`
+		NTFYUrl          string `toml:"ntfy_url"`
+		JsonName         string `toml:"json_name"`
 	} `toml:"config"`
 }
 
@@ -57,4 +59,11 @@ type SteamWishlist struct {
 			AppId int `json:"appid"`
 		} `json:"items"`
 	} `json:"response"`
+}
+
+// GameId string `json:"id"`
+// append jsonData[gameid][shopId] = jsonData
+type JsonData struct {
+	Expiry string `json:"expiry"`
+	Url    string `json:"url"`
 }

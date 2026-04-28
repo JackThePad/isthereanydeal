@@ -131,6 +131,7 @@ func getValidDeal(gamePrice mytypes.GamePrices, dealChan chan<- mytypes.Deals) [
 	for _, deal := range gamePrice.Deals {
 		deal.GameName = gamePrice.Name
 		deal.BannerArt = gamePrice.BannerArt
+		deal.GameId = gamePrice.Id
 
 		if deal.Price.Amount <= 5 {
 			validDeals = append(validDeals, deal)

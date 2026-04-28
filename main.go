@@ -1,3 +1,5 @@
+// Show user's name and pfp
+
 package main
 
 import (
@@ -12,6 +14,9 @@ import (
 
 func main() {
 	cfg := config.LoadTOML()
+
+	// fmt.Println(ntfy.GetJsonContent(cfg))
+	// return
 
 	steamWishlist := steam.GetWishlist(cfg)
 
