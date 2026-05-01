@@ -9,6 +9,7 @@ import (
 	"net/url"
 )
 
+// Uses both the steamid and steam API key to get the user's steam wish list
 func GetWishlist(cfg mytypes.TOMLConfig) []int {
 	var org_url string = "https://api.steampowered.com/IWishlistService/GetWishlist/v1/"
 

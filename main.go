@@ -3,20 +3,17 @@
 package main
 
 import (
-	"fmt"
 	"isthereanydeal/config"
 	isthereanydeal "isthereanydeal/itad"
 	mytypes "isthereanydeal/my-types"
 	"isthereanydeal/ntfy"
 	"isthereanydeal/steam"
+	"log"
 	"sync"
 )
 
 func main() {
 	cfg := config.LoadTOML()
-
-	// fmt.Println(ntfy.GetJsonContent(cfg))
-	// return
 
 	steamWishlist := steam.GetWishlist(cfg)
 
@@ -29,7 +26,7 @@ func main() {
 			if err == nil {
 				isthereanydeal.GetDealFromGameInfo(cfg, gameInfo, dealChan)
 			} else {
-				fmt.Println("unable to find a game")
+				log.Println("Unable to find a game")
 			}
 		})
 	}

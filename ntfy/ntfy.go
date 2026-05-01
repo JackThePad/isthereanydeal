@@ -12,7 +12,42 @@ import (
 	"time"
 )
 
-func GetJsonContent(cfg mytypes.TOMLConfig) map[string]map[int]mytypes.JsonData {
+// Takes the game given and organizes the deals to be shown most off to least off
+// Then passes it off to sendDealByGame()
+func SendDeals(cfg mytypes.TOMLConfig, dealChan <-chan mytypes.Deals) error {
+	allNotifications := map[string][]mytypes.Deals{}
+
+	totalNumberOfDeals := 0
+
+	jsonData := getJsonContent(cfg)
+
+	for deal := range dealChan {
+		if checkExperation(jsonData, deal) {
+			allNotifications[deal.GameId] = append(allNotifications[deal.GameId], deal)
+			addDealsToJson(cfg, deal)
+			totalNumberOfDeals += 1
+		}
+	}
+
+	fmt.Printf("Found %v deals\n", totalNumberOfDeals)
+
+	// Sorts the game prices
+	for key := range allNotifications {
+		sort.Slice(allNotifications[key], func(i, j int) bool {
+			return allNotifications[key][i].Price.AmountInt < allNotifications[key][j].Price.AmountInt
+		})
+	}
+
+	for key, deals := range allNotifications {
+		sendDealByGame(cfg, deals, allNotifications[key][0])
+		time.Sleep(250 * time.Millisecond)
+	}
+
+	return nil
+}
+
+// Simple json file parsing
+func getJsonContent(cfg mytypes.TOMLConfig) map[string]map[int]mytypes.JsonData {
 	jsonContent, err := os.ReadFile(cfg.Config.JsonName)
 
 	if err != nil {
@@ -26,6 +61,18 @@ func GetJsonContent(cfg mytypes.TOMLConfig) map[string]map[int]mytypes.JsonData 
 	return jsonDeals
 }
 
+// When isthereany deal finds a deal they make a unique url that does not change until the deal ends.
+// This means that if a url is already stored it means you have already seen it and that it can be ignored.
+func checkExperation(jsonData map[string]map[int]mytypes.JsonData, deal mytypes.Deals) bool {
+	if jsonData[deal.GameId][deal.Shop.Id].Url == deal.Url {
+		return false
+	} else {
+		return true
+	}
+
+}
+
+// Takes the deal and save it to the json file
 func addDealsToJson(cfg mytypes.TOMLConfig, deal mytypes.Deals) {
 	var seenDeals map[string]map[int]mytypes.JsonData
 
@@ -55,38 +102,7 @@ func addDealsToJson(cfg mytypes.TOMLConfig, deal mytypes.Deals) {
 
 }
 
-func SendDeals(cfg mytypes.TOMLConfig, dealChan <-chan mytypes.Deals) error {
-	allNotifications := map[string][]mytypes.Deals{}
-
-	totalNumberOfDeals := 0
-
-	jsonData := GetJsonContent(cfg)
-
-	for deal := range dealChan {
-		if checkExperation(jsonData, deal) {
-			allNotifications[deal.GameId] = append(allNotifications[deal.GameId], deal)
-			addDealsToJson(cfg, deal)
-			totalNumberOfDeals += 1
-		}
-	}
-
-	fmt.Printf("Found %v deals\n", totalNumberOfDeals)
-
-	// Sorts the game prices
-	for key := range allNotifications {
-		sort.Slice(allNotifications[key], func(i, j int) bool {
-			return allNotifications[key][i].Price.AmountInt < allNotifications[key][j].Price.AmountInt
-		})
-	}
-
-	for key, deals := range allNotifications {
-		sendDealByGame(cfg, deals, allNotifications[key][0])
-		time.Sleep(250 * time.Millisecond)
-	}
-
-	return nil
-}
-
+// Formats and sends the data to ntfy
 func sendDealByGame(cfg mytypes.TOMLConfig, gameDeals []mytypes.Deals, gameInfo mytypes.Deals) error {
 	var body strings.Builder
 	fmt.Fprintf(&body, "Found a deal on %v (normally $%.2f)", gameInfo.GameName, gameInfo.Regular.Amount)
@@ -118,13 +134,4 @@ func sendDealByGame(cfg mytypes.TOMLConfig, gameDeals []mytypes.Deals, gameInfo 
 	defer resp.Body.Close()
 
 	return nil
-}
-
-func checkExperation(jsonData map[string]map[int]mytypes.JsonData, deal mytypes.Deals) bool {
-	if jsonData[deal.GameId][deal.Shop.Id].Url == deal.Url {
-		return false
-	} else {
-		return true
-	}
-
 }

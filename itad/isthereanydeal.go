@@ -118,6 +118,7 @@ func getGameDeals(cfg mytypes.TOMLConfig, gameInfo mytypes.GameInfo) (mytypes.Ga
 		log.Fatal(err)
 	}
 
+	// For some reason it will return a slice even though there will only ever be one item in it
 	deal := deals[0]
 
 	deal.Name = gameInfo.Game.Title
